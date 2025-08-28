@@ -1,16 +1,3 @@
-import {
-  createThing,
-  setThing,
-  saveSolidDatasetAt,
-  getSolidDataset,
-  getThingAll,
-  addStringNoLocale,
-  addDatetime,
-  getStringNoLocale,
-  getDatetime,
-  Thing,
-} from "@inrupt/solid-client";
-
 import { MYAPP, SCHEMA, DCTERMS } from "./schemas";
 import { RecommendationSession, Song } from "@/types/recommendation";
 
