@@ -32,7 +32,7 @@ export default function LoginPage() {
             await session.login({
                 oidcIssuer: IDp,
                 redirectUrl: window.location.origin + '/callback',
-                clientName: 'Recommus',
+                clientName: 'MuseRec',
             });
         } catch (error: any){
             toast.error(error.message || 'An error occurred while logging in');
@@ -56,7 +56,7 @@ export default function LoginPage() {
                     <div>
                         <label 
                             htmlFor="oidc_provider" 
-                            className="block text-sm font-medium leading-6 text-gray-900"
+                            className="block text-sm font-medium leading-6"
                         >
                             OIDC Provider
                         </label>
@@ -70,14 +70,15 @@ export default function LoginPage() {
                                 required
                                 value={IDp}
                                 onChange={(e) => setIDp(e.target.value)}
-                                className="block w-full rounded-md border-0 py-3 px-3 text-gray-900 shadow-lg ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6"
+                                className="block w-full rounded-md border-0 py-3 px-3 text-gray-900 shadow-lg ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6 bg-white"
                             />
                         </div>
                     </div>
 
                     <div>
                         <button
-                            type="submit"
+                            type="button"
+                            onClick={handleLogin}
                             className="flex w-full justify-center rounded-md bg-indigo-600 px-6 py-3 text-base font-semibold leading-6 text-white shadow-sm hover:bg-indigo-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600"
                         >
                             Sign in
