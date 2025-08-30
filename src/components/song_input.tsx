@@ -46,13 +46,10 @@ export default function SongInput({ onSongSelect }: { onSongSelect: (song: Song)
   }
 
   return (
-    <div className="flex min-h-full flex-col justify-center px-6 py-12 lg:px-8">
-      <div className="sm:mx-auto sm:w-full sm:max-w-sm">
-        <h2 className="text-center py-3 text-gray-900 text-lg font-bold">
-          Step 1. Enter up to 5 songs
-        </h2>
-      </div>
-      <div>
+    <div>
+        <p className="font-bold text-gray-600 mt-1 mb-2">
+          Step 1. Choose 5 songs
+        </p>
         <input
           type="text"
           value={query}
@@ -61,9 +58,8 @@ export default function SongInput({ onSongSelect }: { onSongSelect: (song: Song)
           className="w-full p-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-black"
         />
         {loading && <p className="text-gray-900 text-sm">Searching...</p>}
-      </div>
 
-      <ul>
+      <div className="mt-2 flex flex-wrap gap-2">
         {results.map((song) => (
           <li
             key={song.id}
@@ -83,7 +79,7 @@ export default function SongInput({ onSongSelect }: { onSongSelect: (song: Song)
             </div>
           </li>
         ))}
-      </ul>
+      </div>
     </div>
   );
 }

@@ -66,9 +66,6 @@ export default function RecPage() {
         .addStringNoLocale("https://schema.org/name", song.title)
         .addStringNoLocale("https://schema.org/artist", song.artist);
 
-      if (song.translationOfWork) {
-        songBuilder = songBuilder.addStringNoLocale("https://schema.org/translationOfWork", song.translationOfWork);
-      }
       if (song.inAlbum) {
         songBuilder = songBuilder.addStringNoLocale("https://schema.org/inAlbum", song.inAlbum);
       }
@@ -99,65 +96,56 @@ export default function RecPage() {
 }
 
   return (
-    <div className="flex min-h-full flex-col justify-center px-6 py-12 lg:px-8">
-      <div className="sm:mx-auto sm:w-full sm:max-w-sm">
-        <h1 className="text-center text-lg font-bold">
-          MuseRec
-        </h1>
+    <div className="mx-auto p-6 flex flex-col gap-6">
+
+      <div className="text-center">
+        <h1 className="text-2xl font-bold">MuseRec</h1>
       </div>
 
-      <div className="mt-10 px-3 py-3 rounded-xl sm:mx-auto sm:w-full sm:max-w-sm bg-white">
-        <SongInput onSongSelect={handleSongSelect} />
+      <div className="grid grid-cols-1 md:grid-cols-5 gap-3">
+        <div className="md:col-span-3 p-3 bg-gray-100 rounded-md">
+          <SongInput onSongSelect={handleSongSelect} />
 
-        <SongSelected
-          selectedSongs={selectedSongs}
-          setSelectedSongs={setSelectedSongs}
-        />
-      </div>
-      
-      <div className="mt-10 px-3 py-3 rounded-xl sm:mx-auto sm:w-full sm:max-w-sm bg-white">
-        <div>
-          <div className="sm:mx-auto sm:w-full sm:max-w-sm">
-            <h2 className="text-center py-3 text-gray-900 text-lg font-bold">
-              Step 2. (Optional) Tell me what you want (e.g. for a party, for studying, etc.)
-            </h2>
-          </div>
-          <form className="space-y-6">
-            <div>
-              <input
-                type="text"
-                value={reason}
-                onChange={(e) => setReason(e.target.value)}
-                placeholder="What you want (optional)"
-                className="w-full p-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-black"
-              />
-            </div>
-          </form>
+          <SongSelected
+            selectedSongs={selectedSongs}
+            setSelectedSongs={setSelectedSongs}
+          />
         </div>
+
+        <div className="flex flex-col gap-4 md:col-span-2">
+          <div className="p-3 bg-gray-100 rounded-md">
+            <p className="font-bold text-gray-600 mt-1 mb-2">Step 2. (Optional) What's the vibe?</p>
+            <input
+              type="text"
+              value={reason}
+              onChange={(e) => setReason(e.target.value)}
+              placeholder="What you want (optional)"
+              className="w-full p-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-black"
+            />
+          </div>
+
+          <div className="p-3 bg-gray-100 rounded-md">
+            <p className="font-bold text-gray-600 mt-1 mb-2">Step 3. (Also optional) Which LLM would you like to use?</p>
+            <select id="LLM" className="block w-full rounded-md border-0 py-3 px-3 text-gray-900 shadow ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6">
+              <option value="GPT">ChatGPT</option>
+              <option value="LL">LLama</option>
+              <option value="Q">Qwen</option>
+            </select>
+          </div>
   
-        <div className="mt-10 px-3 py-3 rounded-xl sm:mx-auto sm:w-full sm:max-w-sm bg-white">
-          <div className="sm:mx-auto sm:w-full sm:max-w-sm">
-            <h2 className="text-center py-3 text-gray-900 text-lg font-bold">
-              Step 3. (Also optional) Choose your LLM
-            </h2>
-          </div>
-          <form className="space-y-6">
-            <div>
-              (// dropdown for LLM selection)
-            </div>
-          </form>
-        </div>
-      </div>
 
-      <div className="mt-10 px-3 py-3 rounded-xl sm:mx-auto sm:w-full sm:max-w-sm bg-white">
-        <button
-          onClick={saveChosenSongs}
-          className="flex w-full justify-center rounded-md bg-indigo-600 px-6 py-3 text-base font-semibold leading-6 text-white shadow-sm hover:bg-indigo-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600"
-        >
-          <span>
-            Recommend me!
-          </span>
-        </button>
+          <div className="p-3 bg-gray-100 rounded-md">
+            <p className="font-bold text-gray-600 mt-1 mb-2">Step 4. Recommend me some songs!</p>
+            <button
+              onClick={saveChosenSongs}
+              className="w-full py-3 rounded-md bg-blue-600 text-white font-semibold hover:bg-blue-500 disabled:bg-gray-400"
+            >
+              <span>
+                Recommend me!
+              </span>
+            </button>
+          </div>
+        </div>
       </div>
 
       <Toaster position="top-right" />

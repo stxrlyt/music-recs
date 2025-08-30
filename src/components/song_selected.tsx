@@ -23,6 +23,12 @@ export default function SongSelected({ selectedSongs, setSelectedSongs }: SongSe
   }
 
   function handleToggle(song: Song) {
+
+    if (!song.previewUrl || !song.previewUrl.startsWith('http')) {
+      console.warn('Invalid preview URL for song:', song);
+      return;
+    }
+    
     if (!song.previewUrl) return;
 
     // If the same song is playing, pause it
@@ -46,50 +52,53 @@ export default function SongSelected({ selectedSongs, setSelectedSongs }: SongSe
   }
 
   return (
-    <div className="sm:mx-auto sm:w-full sm:max-w-sm py-6 gap-4">
-      <h2 className="text-center text-lg font-semibold mb-2 text-gray-900">Your Selected Songs:</h2>
-      {selectedSongs.length === 0 && <p className="text-gray-500 text-center">No songs selected yet.</p>}
-      
-      <ul className="flex gap-4 overflow-x-visible p-2 justify-center">
+    <div className="mt-4">
+      <h2 className="text-center text-lg font-semibold mb-4 text-gray-900">Your Selected Songs:</h2>
+      {selectedSongs.length === 0 && (
+        <p className="text-gray-500 text-center">No songs selected yet.</p>
+      )}
+
+      <ul className="grid grid-cols-5 gap-4">
         {selectedSongs.map((song) => {
           const isPlaying = playingSongId === song.id;
           return (
             <li
-              key={song.id}
-              className="flex flex-col items-center p-4 rounded-md shadow-sm hover:bg-gray-900 hover:text-white cursor-pointer min-w-[150px]"
+                key={song.id}
+              className="bg-white rounded-lg shadow p-2 text-center max-w-[200px] mx-auto"
             >
               {song.coverImage && (
                 <img
                   src={song.coverImage}
                   alt={song.title}
-                  className="w-24 h-24 rounded-md mb-2"
+                  className="w-32 h-32 object-cover rounded-md mb-2"
                 />
               )}
-              <p className="font-semibold text-center">{song.title}</p>
-              <p className="text-sm text-gray-500 text-center">{song.artist}</p>
+              <p className="mt-2 font-semibold text-sm text-gray-900">{song.title}</p>
+              <p className="text-gray-500 text-xs">{song.artist}</p>
 
-              {/* Preview Toggle Button */}
-              <button
-                onClick={() => handleToggle(song)}
-                disabled={!song.previewUrl}
-                className={`mt-2 px-3 py-1 rounded-md transition ${
-                  song.previewUrl
+              <div className='px-2'>
+                <button
+                  onClick={() => handleToggle(song)}
+                  disabled={!song.previewUrl}
+                  className={`mt-2 px-3 py-1 rounded-md transition ${
+                    song.previewUrl
                     ? isPlaying
                       ? 'bg-red-500 text-white hover:bg-red-600'
-                      : 'bg-indigo-500 text-white hover:bg-indigo-600'
+                    : 'bg-indigo-500 text-white hover:bg-indigo-600'
                     : 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                }`}
-              >
-                {isPlaying ? 'Pause' : 'Preview'}
-              </button>
+                  }`}
+                >
+                  {song.previewUrl ? (isPlaying ? 'Pause' : 'Preview') : 'No Preview'}
+                </button>
 
-              {/* Remove Button */}
-              <button
-                onClick={() => handleRemoveSong(song.id)}
-                className="mt-2 px-3 py-1 bg-red-500 text-white rounded-md hover:bg-red-600"
-              >
-                X
-              </button>
+                {/* Remove Button */}
+                <button
+                  onClick={() => handleRemoveSong(song.id)}
+                  className="mt-2 px-3 py-1 bg-red-500 text-white rounded-md hover:bg-red-400"
+                >
+                  X
+                </button>
+              </div>
             </li>
           );
         })}
