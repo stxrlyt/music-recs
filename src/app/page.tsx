@@ -11,8 +11,13 @@ import {
   buildThing,
   createSolidDataset,
   saveSolidDatasetAt,
-  setStringNoLocale
+  getResourceInfo,
+  createContainerAt, /*,
+  getStringNoLocale,
+  getThingAll,
+  getSolidDataset */
  } from "@inrupt/solid-client";
+import { v4 as uuidv4 } from 'uuid';
 import SongInput, { Song } from '@/components/song_input';
 import SongSelected from '@/components/song_selected';
 
@@ -20,6 +25,8 @@ export default function RecPage() {
   const { session, isLoggedIn } = useSolidSession();
   const [selectedSongs, setSelectedSongs] = useState<Song[]>([]);
   const [reason, setReason] = useState("");
+  const [recommendation, setRecommendation] = useState('');
+  const [loading, setLoading] = useState(false);
   const router = useRouter();
 
   useEffect(() => {
@@ -33,6 +40,7 @@ export default function RecPage() {
           const podUrls = await getPodUrlAll(session.info.webId!, {fetch: session.fetch});
           if (podUrls.length > 0){
             const storage = podUrls[0];
+            await ensureChatFolderExists(storage);
             toast.success(`Connected to Solid storage ${storage}`)
           }
         } catch (err) {
@@ -48,52 +56,105 @@ export default function RecPage() {
     setSelectedSongs((prev) => [...prev, song]);
   }
 
+  const ensureChatFolderExists = async (storageRoot: string) => {
+    const chatFolderUrl = `${storageRoot}MuseRec/`;
+    try {
+      await getResourceInfo(chatFolderUrl, { fetch: session.fetch });
+    } catch {
+      try {
+        await createContainerAt(chatFolderUrl, { fetch: session.fetch });
+      } catch (err) {
+        console.error('❌ Failed to create chat folder:', err);
+      }
+    }
+  };
+
   async function saveChosenSongs(){
-  try {
-    const podUrls = await getPodUrlAll(session.info.webId!, {fetch: session.fetch});
-    const storage = podUrls[0];
-    const playlistUrl = `${storage}MuseRec/${Date.now()}-playlist.ttl`;
-
-    let chosenPlaylistDataset = createSolidDataset();
-
-    let chosenThing = buildThing(createThing({name: "playlist"}))
-      .addStringNoLocale("https://schema.org/name", "User-chosen")
-      .addStringNoLocale("https://schema.org/description", reason)
-      .build();
-
-    selectedSongs.forEach((song, index) => {
-      let songBuilder = buildThing(createThing({ name: `song-${index}` }))
-        .addStringNoLocale("https://schema.org/name", song.title)
-        .addStringNoLocale("https://schema.org/artist", song.artist);
-
-      if (song.inAlbum) {
-        songBuilder = songBuilder.addStringNoLocale("https://schema.org/inAlbum", song.inAlbum);
+    try {
+      const podUrls = await getPodUrlAll(session.info.webId!, {fetch: session.fetch});
+      if (podUrls.length === 0) {
+        toast.error("No Pod URL found");
+        return null;
       }
-      if (song.duration) {
-        songBuilder = songBuilder.addStringNoLocale("https://schema.org/duration", song.duration);
-      }
-      if (song.inLanguage) {
-        songBuilder = songBuilder.addStringNoLocale("https://schema.org/inLanguage", song.inLanguage);
-      }
-      if (song.datePublished) {
-        songBuilder = songBuilder.addStringNoLocale("https://schema.org/datePublished", song.datePublished);
-      }
-      if (song.genre) {
-        songBuilder = songBuilder.addStringNoLocale("https://schema.org/genre", song.genre);
-      }
-      chosenPlaylistDataset = setThing(chosenPlaylistDataset, songBuilder.build());
-    });
 
-    chosenPlaylistDataset = setThing(chosenPlaylistDataset, chosenThing);
+      const uuid = uuidv4();
+      const storage = podUrls[0];
+      const playlistUrl = `${storage}MuseRec/${uuid}-playlist.ttl`;
 
-    await saveSolidDatasetAt(playlistUrl, chosenPlaylistDataset, {fetch: session.fetch});
+      let dataset = createSolidDataset();
 
-    toast.success(`Chosen songs saved to your Pod at ${playlistUrl}`);
-  } catch (err) {
-    console.error("Error saving chosen songs:", err);
-    toast.error("Failed saving chosen songs");
+      let playlistThing = buildThing(createThing({name: "playlist"}))
+        .addStringNoLocale("https://schema.org/name", "User-chosen playlist")
+        .addStringNoLocale("https://schema.org/description", reason)
+        .build();
+
+      dataset = setThing(dataset, playlistThing)
+
+      selectedSongs.forEach((song, index) => {
+        dataset = setThing(
+          dataset,
+          buildThing(createThing({ name: `song-${index}` }))
+            .addStringNoLocale("https://schema.org/name", song.title)
+            .addStringNoLocale("https://schema.org/artist", song.artist)
+            .build()
+        );
+      });
+
+      await saveSolidDatasetAt(playlistUrl, dataset, {fetch: session.fetch});
+
+      toast.success(`Chosen songs saved to your Pod at ${playlistUrl}`);
+    } catch (err) {
+      console.error('Error saving song list: ', err);
+      toast.error('Failed saving song list');
+      return null;
+    }
   }
-}
+
+  async function handleRecommend() {
+    if (selectedSongs.length === 0) {
+      toast.error('Please select at least one song');
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const fileUrl = await saveChosenSongs();
+      if (!fileUrl) return;
+
+      const prompt = 
+        `You are a music recommendation assistant.
+        User selected these songs:
+        ${selectedSongs.map((s, i) => `${i + 1}. ${s.title} by ${s.artist}`).join('\n')}
+        Reason: ${reason || 'N/A'}
+
+        Suggest 5 new songs similar to these with brief explanations.
+      `; 
+
+      console.log('Sending prompt to LLM', prompt);
+
+      const response = await fetch ('/api/recs', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ prompt })
+      });
+
+      console.log('API status:', response.status);
+
+      const data = await response.json();
+      console.log('API response data:', data);
+
+      if (data.reply){
+        setRecommendation(data.reply);
+      } else {
+        toast.error('No recommendation received');
+      }
+    } catch (error) {
+      console.error('Error during recommendation:', error);
+      toast.error('Failed to get recommendations');
+    } finally {
+      setLoading(false);
+    }
+  }
 
   return (
     <div className="mx-auto p-6 flex flex-col gap-6">
@@ -123,29 +184,26 @@ export default function RecPage() {
               className="w-full p-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-black"
             />
           </div>
-
-          <div className="p-3 bg-gray-100 rounded-md">
-            <p className="font-bold text-gray-600 mt-1 mb-2">Step 3. (Also optional) Which LLM would you like to use?</p>
-            <select id="LLM" className="block w-full rounded-md border-0 py-3 px-3 text-gray-900 shadow ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6">
-              <option value="GPT">ChatGPT</option>
-              <option value="LL">LLama</option>
-              <option value="Q">Qwen</option>
-            </select>
-          </div>
-  
-
-          <div className="p-3 bg-gray-100 rounded-md">
-            <p className="font-bold text-gray-600 mt-1 mb-2">Step 4. Recommend me some songs!</p>
-            <button
-              onClick={saveChosenSongs}
-              className="w-full py-3 rounded-md bg-blue-600 text-white font-semibold hover:bg-blue-500 disabled:bg-gray-400"
-            >
-              <span>
-                Recommend me!
-              </span>
-            </button>
-          </div>
         </div>
+
+        <div className="grid grid-cols-1 p-3 bg-gray-100 rounded-md">
+          <p className="font-bold text-gray-600 mt-1 mb-2">Step 4. Recommend me some songs!</p>
+          <button
+            onClick={handleRecommend}
+            disabled={loading}
+            className="w-full py-3 rounded-md bg-blue-600 text-white font-semibold hover:bg-blue-500 disabled:bg-gray-400"
+          >
+            {loading ? 'Recommending...' : 'Recommend me!'}
+          </button>
+        </div>
+      </div>
+      <div>
+        {recommendation && (
+          <div className="mt-4 p-4 bg-gray-100 rounded-md text-gray-900">
+            <h3 className="font-bold mb-2">AI Recommendation:</h3>
+            <p>{recommendation}</p>
+          </div>
+        )}
       </div>
 
       <Toaster position="top-right" />

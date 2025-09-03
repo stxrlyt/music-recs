@@ -74,7 +74,7 @@ export default function SongInput({ onSongSelect }: { onSongSelect: (song: Song)
               />
             )}
             <div>
-              <p className="font-semibold">{song.title}</p>
+              <p className="font-semibold text-black">{song.title}</p>
               <p className="text-sm text-gray-500">{song.artist}</p>
             </div>
           </li>
