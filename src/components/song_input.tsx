@@ -8,11 +8,6 @@ export interface Song {
   artist: string;
   coverImage?: string;
   previewUrl?: string;
-  inAlbum?: string;          // Album name
-  duration?: string;         // Formatted duration (e.g., "3:45")
-  inLanguage?: string;       // Language if available
-  datePublished?: string;    // Release date
-  genre?: string;            // Genre (Spotify needs extra query for this)
 }
 
 export default function SongInput({ onSongSelect }: { onSongSelect: (song: Song) => void }) {

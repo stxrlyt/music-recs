@@ -20,11 +20,13 @@ import {
 import { v4 as uuidv4 } from 'uuid';
 import SongInput, { Song } from '@/components/song_input';
 import SongSelected from '@/components/song_selected';
+import { parse } from "path";
 
 export default function RecPage() {
   const { session, isLoggedIn } = useSolidSession();
   const [selectedSongs, setSelectedSongs] = useState<Song[]>([]);
   const [reason, setReason] = useState("");
+  const [ llmMethod, setllmMethod ] = useState("openai");
   const [recommendation, setRecommendation] = useState('');
   const [loading, setLoading] = useState(false);
   const router = useRouter();
@@ -69,14 +71,9 @@ export default function RecPage() {
     }
   };
 
-  async function saveChosenSongs(){
+  async function saveChosenSongs(reason: string, selectedSongs: Song[], recommendedSongs: Song[] = []){
     try {
       const podUrls = await getPodUrlAll(session.info.webId!, {fetch: session.fetch});
-      if (podUrls.length === 0) {
-        toast.error("No Pod URL found");
-        return null;
-      }
-
       const uuid = uuidv4();
       const storage = podUrls[0];
       const playlistUrl = `${storage}MuseRec/${uuid}-playlist.ttl`;
@@ -84,7 +81,7 @@ export default function RecPage() {
       let dataset = createSolidDataset();
 
       let playlistThing = buildThing(createThing({name: "playlist"}))
-        .addStringNoLocale("https://schema.org/name", "User-chosen playlist")
+        .addStringNoLocale("https://schema.org/name", `${podUrls} playlist`)
         .addStringNoLocale("https://schema.org/description", reason)
         .build();
 
@@ -100,9 +97,20 @@ export default function RecPage() {
         );
       });
 
+      recommendedSongs.forEach((song, index) => {
+        dataset = setThing(
+          dataset,
+          buildThing(createThing({ name: `recommended-song-${index}` }))
+            .addStringNoLocale("https://schema.org/name", song.title)
+            .addStringNoLocale("https://schema.org/artist", song.artist)
+            .build()
+        );
+      });
+
       await saveSolidDatasetAt(playlistUrl, dataset, {fetch: session.fetch});
 
       toast.success(`Chosen songs saved to your Pod at ${playlistUrl}`);
+      return playlistUrl;
     } catch (err) {
       console.error('Error saving song list: ', err);
       toast.error('Failed saving song list');
@@ -118,7 +126,7 @@ export default function RecPage() {
 
     setLoading(true);
     try {
-      const fileUrl = await saveChosenSongs();
+      const fileUrl = await saveChosenSongs(reason, selectedSongs);
       if (!fileUrl) return;
 
       const prompt = 
@@ -127,7 +135,7 @@ export default function RecPage() {
         ${selectedSongs.map((s, i) => `${i + 1}. ${s.title} by ${s.artist}`).join('\n')}
         Reason: ${reason || 'N/A'}
 
-        Suggest 5 new songs similar to these with brief explanations.
+        Suggest 5 new songs (with format "Song Title by Artist") similar to these with brief explanations.
       `; 
 
       console.log('Sending prompt to LLM', prompt);
@@ -135,7 +143,7 @@ export default function RecPage() {
       const response = await fetch ('/api/recs', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ prompt })
+        body: JSON.stringify({ prompt, llmMethod })
       });
 
       console.log('API status:', response.status);
@@ -143,17 +151,32 @@ export default function RecPage() {
       const data = await response.json();
       console.log('API response data:', data);
 
-      if (data.reply){
-        setRecommendation(data.reply);
-      } else {
-        toast.error('No recommendation received');
+      if (!data.reply){
+        toast.error("No recommendation received");
+        return
       }
+
+      setRecommendation(data.reply);
+
+      const recommendedSongs = parseSongs(data.reply);
+      await saveChosenSongs(reason, selectedSongs, recommendedSongs);
     } catch (error) {
       console.error('Error during recommendation:', error);
       toast.error('Failed to get recommendations');
     } finally {
       setLoading(false);
     }
+  }
+
+  function parseSongs(text:string) {
+    const lines = text.split('\n').filter(line => line.trim() !== "");
+    return lines.map((line, index) => {
+      const match = line.match(/^\d*\.?\s*(.+?) by (.+)$/i);
+      if (match) {
+        return { id: `rec-${index}`, title: match[1].trim(), artist: match[2].trim() };
+      }
+      return { id: `rec-${index}`, title: line.trim(), artist: 'Unknown' };
+    })
   }
 
   return (
@@ -184,6 +207,18 @@ export default function RecPage() {
               className="w-full p-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-black"
             />
           </div>
+
+          <div className="p-3 bg-gray-100 rounded-md">
+            <p className="font-bold text-gray-600 mt-1 mb-2">Step 3. (Also optional) Which LLM?</p>
+            <select
+              value={llmMethod}
+              onChange={(e) => setllmMethod(e.target.value)}
+              className="w-full p-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-black"
+            >
+              <option value="openai">GPT-4o mini (Quota unavailable)</option>
+              <option value="huggingface">HuggingFace</option>
+            </select>
+          </div>
         </div>
 
         <div className="grid grid-cols-1 p-3 bg-gray-100 rounded-md">
@@ -200,7 +235,7 @@ export default function RecPage() {
       <div>
         {recommendation && (
           <div className="mt-4 p-4 bg-gray-100 rounded-md text-gray-900">
-            <h3 className="font-bold mb-2">AI Recommendation:</h3>
+            <h3 className="font-bold mb-2">MuseRec recommended you:</h3>
             <p>{recommendation}</p>
           </div>
         )}

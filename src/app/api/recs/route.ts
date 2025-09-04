@@ -1,52 +1,54 @@
-import { NextResponse } from 'next/server';
+import { NextResponse } from "next/server";
 
 export async function POST(req: Request) {
   try {
-    const {prompt} = await req.json();
+    const { prompt, llmMethod } = await req.json();
+    let reply = "";
 
-    if(!prompt) {
-      return NextResponse.json('Missing prompt', { status: 400 });
+    if (llmMethod === "openai") {
+      const response = await fetch("https://api.openai.com/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${process.env.OPENAI_API_KEY}`,
+        },
+        body: JSON.stringify({
+          model: "gpt-4o-mini",
+          messages: [
+            { role: "system", content: "You are a music recommendation assistant." },
+            { role: "user", content: prompt },
+          ],
+        }),
+      });
+      const data = await response.json();
+      reply = data?.choices?.[0]?.message?.content || "";
     }
 
-    const apiKey = process.env.OPENAI_API_KEY;
+    if (llmMethod === "huggingface") {
+      const response = await fetch("https://api-inference.huggingface.co/models/mistralai/Mistral-7B-Instruct-v0.2", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${process.env.HF_API_KEY || ""}`,
+        },
+        body: JSON.stringify({ inputs: prompt }),
+      });
+      const text = await response.text();
+      let data;
+      try {
+        data = JSON.parse(text);
+      } catch {
+        console.error("❌ HuggingFace returned non-JSON:", text);
+        return NextResponse.json({ error: "HuggingFace returned HTML or error page" }, { status: 500 });
+      }
 
-    if (!apiKey){
-      return NextResponse.json({ error: 'OpenAI API key not configured' }, { status: 500 });
+      reply = data?.[0]?.generated_text || "";
+
     }
 
-    console.log('Received prompt: ', prompt);
-
-    const response = await fetch('https://api.openai.com/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${apiKey}`,
-      },
-      body: JSON.stringify({
-        model: 'gpt-4o-mini',
-        messages: [
-          { role: 'system', content: 'You are a helpful music recommendation assistant.' },
-          { role: 'user', content: prompt }
-        ],
-        temperature: 0.7,
-        max_tokens: 500,
-      }),
-    });
-
-    if(!response.ok){
-      const errorText = await response.text();
-      console.error('OpenAI API error: ', errorText);
-      return NextResponse.json({ error: errorText }, { status: response.status });
-    }
-
-    const data = await response.json();
-    const reply = data?.choices?.[0]?.message?.content;
-
-    console.log('Reply: ', reply);
-
-    return NextResponse.json({ reply: reply || '' });
+    return NextResponse.json({ reply });
   } catch (error) {
-    console.error('Error calling OpenAI:', error);
-    return NextResponse.json({ error: 'Failed to generate recommendations' }, { status: 500 });
+    console.error("❌ API error:", error);
+    return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
   }
 }
